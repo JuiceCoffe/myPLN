@@ -81,8 +81,29 @@ class ResNet18Backbone(nn.Module):
 
     def load_pretrained(self):
         state_dict = load_state_dict_from_url(MODEL_URLS["resnet18"], progress=True, map_location="cpu")
-        filtered = {k: v for k, v in state_dict.items() if not k.startswith("fc.")}
-        self.load_state_dict(filtered, strict=False)
+        filtered = {}
+        
+        for k, v in state_dict.items():
+            # 丢弃全连接层
+            if k.startswith("fc."):
+                continue
+            
+            # 修复名称不匹配的问题
+            if k.startswith("conv1."):
+                k = "stem." + k
+            elif k.startswith("bn1."):
+                k = "stem." + k
+                
+            filtered[k] = v
+
+        load_result = self.load_state_dict(filtered, strict=False)
+        
+        print("="*20,"预训练权重检查","="*20)
+        if load_result.missing_keys:
+            print(f"Warning: 缺失了以下权重: {load_result.missing_keys}")
+        if load_result.unexpected_keys:
+            print(f"Warning: 发现了未预期的权重: {load_result.unexpected_keys}")
+
 
     def forward(self, x):
         x = self.stem(x)

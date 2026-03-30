@@ -1,4 +1,5 @@
 import logging as log
+import math
 import json
 import os
 import shutil
@@ -16,7 +17,30 @@ from ._pln_utils import collect_pln_detections, evaluate_map, write_voc_results
 __all__ = ["PLNTrainingEngine"]
 
 
+class _AttrDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+
 class PLNTrainingEngine(engine.Engine):
+    @property
+    def learning_rate(self):
+        return getattr(self, '_base_learning_rate', self.optimizer.param_groups[-1]['lr'])
+
+    @learning_rate.setter
+    def learning_rate(self, lr):
+        self._base_learning_rate = lr
+        applied = []
+        for param_group in self.optimizer.param_groups:
+            lr_mult = param_group.get('lr_mult', 1.0)
+            group_lr = lr * lr_mult
+            param_group['lr'] = group_lr
+            applied.append(f"{param_group.get('name', 'group')}={group_lr:.8f}")
+        log.info('Adjusting learning rates: %s', ', '.join(applied))
+
     def __init__(self, hyper_params):
         self.hyper_params = hyper_params
         self.batch_size = hyper_params.batch
@@ -48,13 +72,25 @@ class PLNTrainingEngine(engine.Engine):
         log.info("Net structure\n\n%s\n", net)
         if self.cuda:
             net.cuda()
+            visible_gpus = torch.cuda.device_count()
+            if visible_gpus > 1:
+                net = _AttrDataParallel(net, device_ids=list(range(visible_gpus)))
+                log.info("Using DataParallel across %d GPUs", visible_gpus)
+
+        model_ref = net.module if isinstance(net, _AttrDataParallel) else net
+        backbone_params = list(model_ref.backbone.parameters())
+        backbone_param_ids = {id(param) for param in backbone_params}
+        other_params = [param for param in model_ref.parameters() if id(param) not in backbone_param_ids]
 
         optim = torch.optim.SGD(
-            net.parameters(),
-            lr=hyper_params.learning_rate / self.batch_size,
+            [
+                {'params': backbone_params, 'lr_mult': hyper_params.backbone_lr_mult, 'name': 'backbone'},
+                {'params': other_params, 'lr_mult': 1.0, 'name': 'main'},
+            ],
+            lr=hyper_params.learning_rate,
             momentum=hyper_params.momentum,
             dampening=0,
-            weight_decay=hyper_params.decay * self.batch_size,
+            weight_decay=hyper_params.decay,
         )
 
         dataset = data.PLNTrainDataset(
@@ -64,6 +100,16 @@ class PLNTrainingEngine(engine.Engine):
             grid_size=hyper_params.grid_size,
             num_classes=hyper_params.classes,
             flip=hyper_params.flip,
+            jitter=hyper_params.jitter,
+            crop_min_area=hyper_params.crop_min_area,
+            hue=hyper_params.hue,
+            saturation=hyper_params.sat,
+            value=hyper_params.val,
+            brightness=hyper_params.brightness,
+            contrast=hyper_params.contrast,
+            grayscale=hyper_params.grayscale,
+            blur=hyper_params.blur,
+            noise_std=hyper_params.noise_std,
         )
         dataloader = torch.utils.data.DataLoader(
             dataset,
@@ -75,11 +121,14 @@ class PLNTrainingEngine(engine.Engine):
         )
 
         super().__init__(net, optim, dataloader)
+        self._base_learning_rate = hyper_params.learning_rate
+        self.learning_rate = hyper_params.learning_rate
         self.loss_log = {key: [] for key in ("total", "point", "coord", "link", "class", "noobj")}
 
     def start(self):
         hp = self.hyper_params
-        self.add_rate("learning_rate", hp.lr_steps, [lr / self.batch_size for lr in hp.lr_rates])
+        if hp.lr_policy != "cosine_warmup":
+            self.add_rate("learning_rate", hp.lr_steps, hp.lr_rates)
         self.add_rate("backup_rate", hp.bp_steps, hp.bp_rates, hp.backup)
         if self.async_eval_enabled:
             os.makedirs(self.async_eval_dir, exist_ok=True)
@@ -99,13 +148,42 @@ class PLNTrainingEngine(engine.Engine):
                 collate_fn=data.pln_test_collate,
             )
 
+
+    def _compute_learning_rate(self, batch_idx):
+        hp = self.hyper_params
+        if hp.lr_policy != "cosine_warmup":
+            return None
+
+        current_iteration = max(int(batch_idx), 1)
+        if hp.warmup_batches > 0 and current_iteration < hp.warmup_batches:
+            return hp.learning_rate + (hp.max_learning_rate - hp.learning_rate) * (current_iteration / hp.warmup_batches)
+
+        if hp.cosine_total_batches <= 0:
+            return hp.max_learning_rate
+
+        decay_iteration = max(current_iteration - hp.warmup_batches, 0)
+        progress = min(decay_iteration / hp.cosine_total_batches, 1.0)
+        return hp.min_learning_rate + 0.5 * (hp.max_learning_rate - hp.min_learning_rate) * (1.0 + math.cos(math.pi * progress))
+
+    def _apply_learning_rate(self, batch_idx):
+        lr = self._compute_learning_rate(batch_idx)
+        if lr is not None and lr != self.learning_rate:
+            self.learning_rate = lr
+
     def process_batch(self, batch):
         images, targets = batch
         if self.cuda:
             images = images.cuda(non_blocking=True)
             targets = targets.cuda(non_blocking=True)
 
-        self.network(images, targets).backward()
+        loss = self.network(images, targets)
+        if isinstance(loss, torch.Tensor) and loss.dim() > 0:
+            loss = loss.sum()
+        loss = loss / self.batch_size
+        loss.backward()
+
+        if isinstance(self.network, _AttrDataParallel):
+            self.network.module.seen += images.size(0)
 
         total = point = coord = link = cls = noobj = 0.0
         for criterion in self.network.loss:
@@ -125,6 +203,7 @@ class PLNTrainingEngine(engine.Engine):
         self.loss_log["noobj"].append(noobj)
 
     def train_batch(self):
+        self._apply_learning_rate(self.batch)
         self.optimizer.step()
         self.optimizer.zero_grad()
 
