@@ -6,7 +6,7 @@ import os
 def parse(fp):
     with open(fp, 'r') as fd:
         cont = fd.read()
-        y = yaml.load(cont)
+        y = yaml.safe_load(cont)
         return y
 
 def getConfig(cfgs_root, model_name):

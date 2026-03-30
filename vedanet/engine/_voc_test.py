@@ -1,6 +1,5 @@
 import logging as log
 import torch
-from torchvision import transforms as tf
 from statistics import mean
 import os
 
@@ -20,7 +19,7 @@ class CustomDataset(vn_data.BramboxDataset):
 
 
         lb  = vn_data.transform.Letterbox(network_size)
-        it  = tf.ToTensor()
+        it  = vn_data.transform.ToTensor()
         img_tf = vn_data.transform.Compose([lb, it])
         anno_tf = vn_data.transform.Compose([lb])
 
@@ -95,5 +94,4 @@ def VOCTest(hyper_params):
     netw, neth = network_size
     reorg_dets = voc_wrapper.reorgDetection(det, netw, neth) #, prefix)
     voc_wrapper.genResults(reorg_dets, results, nms_thresh)
-
 

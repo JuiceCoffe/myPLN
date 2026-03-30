@@ -81,7 +81,7 @@ class YamlParser(Parser):
 
     def deserialize(self, string):
         """ Deserialize a detection file into a dictionary of detections """
-        yml_obj = yaml.load(string)
+        yml_obj = yaml.safe_load(string)
 
         result = {}
         for img_id in yml_obj:

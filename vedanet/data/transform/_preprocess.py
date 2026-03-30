@@ -9,6 +9,7 @@
 
 import random
 import collections
+from collections.abc import Sequence
 import logging as log
 import torch
 import numpy as np
@@ -48,7 +49,7 @@ class Letterbox(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
-        elif isinstance(data, collections.Sequence):
+        elif isinstance(data, Sequence):
             return self._tf_anno(data)
         elif isinstance(data, Image.Image):
             return self._tf_pil(data)
@@ -161,7 +162,7 @@ class RandomCrop(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
-        elif isinstance(data, collections.Sequence):
+        elif isinstance(data, Sequence):
             return self._tf_anno(data)
         elif isinstance(data, Image.Image):
             return self._tf_pil(data)
@@ -268,7 +269,7 @@ class RandomCropLetterbox(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
-        elif isinstance(data, collections.Sequence):
+        elif isinstance(data, Sequence):
             return self._tf_anno(data)
         elif isinstance(data, Image.Image):
             return self._tf_pil(data)
@@ -361,7 +362,7 @@ class RandomFlip(BaseMultiTransform):
     def __call__(self, data):
         if data is None:
             return None
-        elif isinstance(data, collections.Sequence):
+        elif isinstance(data, Sequence):
             return [self._tf_anno(anno) for anno in data]
         elif isinstance(data, Image.Image):
             return self._tf_pil(data)
@@ -507,7 +508,7 @@ class BramboxToTensor(BaseTransform):
 
     @classmethod
     def apply(cls, data, dimension, max_anno=None, class_label_map=None):
-        if not isinstance(data, collections.Sequence):
+        if not isinstance(data, Sequence):
             raise TypeError(f'BramboxToTensor only works with <brambox annotation list> [{type(data)}]')
 
         anno_np = np.array([cls._tf_anno(anno, dimension, class_label_map) for anno in data], dtype=np.float32)

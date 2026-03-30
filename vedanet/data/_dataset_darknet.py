@@ -5,7 +5,6 @@
 
 import os
 from PIL import Image
-from torchvision import transforms as tf
 
 from ._dataset_brambox import BramboxDataset
 from . import transform as vnd_transform
@@ -47,7 +46,7 @@ class DarknetDataset(BramboxDataset):
         rf = vnd_transform.RandomFlip(flip)
         rc = vnd_transform.RandomCrop(jitter, True)
         hsv = vnd_transform.HSVShift(hue, saturation, value)
-        it = tf.ToTensor()
+        it = vnd_transform.ToTensor()
         if augment:
             img_tf = vnd_transform.Compose([hsv, rc, rf, lb, it])
             anno_tf = vnd_transform.Compose([rc, rf, lb])

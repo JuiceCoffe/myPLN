@@ -1,7 +1,6 @@
 import logging as log
 import time
 import torch
-from torchvision import transforms as tf
 from statistics import mean
 import os
 
@@ -46,5 +45,4 @@ def speed(hyper_params):
 
     print('%s: Average %.3fms per forward in %d iteration (batch size %d, shape %dx%d)' % 
             (model_name, 1000 * elapse / max_iters, max_iters, batch, network_size[0], network_size[1]))
-
 

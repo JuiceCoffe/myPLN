@@ -103,7 +103,7 @@ class YamlParser(Parser):
 
     def deserialize(self, string):
         """ Deserialize an annotation file into a dictionary of annotations """
-        yml_obj = yaml.load(string)
+        yml_obj = yaml.safe_load(string)
 
         result = {}
         for img_id in yml_obj:

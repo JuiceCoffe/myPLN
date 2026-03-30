@@ -204,3 +204,38 @@ You can try these like `5) Mobilenet` part.
 
 ## Credits
 I got a lot of code from [lightnet](https://gitlab.com/EAVISE/lightnet), thanks to EAVISE.
+
+## PLNResnet18
+This repo now also includes a migrated Point Linking Network model named `PLNResnet18`.
+
+### Prepare VOC text files
+If you already have a `VOCdevkit` directory locally, generate the PLN text files with:
+
+```bash
+python examples/prepare_pln_voc.py --voc-root /path/to/VOCdevkit --output-dir /root/hmp/voc_pln_cache
+```
+
+This writes:
+- `train.txt`: VOC2007+2012 trainval with original box coordinates
+- `test_448.txt`: VOC2007 test resized to 448x448 coordinates for PLN evaluation
+
+### Train
+Update `cfgs/pln_resnet18.yml` if needed, then run:
+
+```bash
+python examples/train.py PLNResnet18
+```
+
+During training, the PLN engine supports periodic evaluation and checkpointing:
+- `eval_interval`: run evaluation every N batches
+- `eval_batch_size`: validation batch size
+- `backup.pt`: rolling backup
+- `latest.pt`: latest weights after each optimizer step
+- `best.pt`: best weights according to `eval_metric_name`
+
+### Test
+```bash
+python examples/test.py PLNResnet18
+```
+
+Results are written as VOC-style `comp4_det_test_<class>.txt` files under the configured results directory.

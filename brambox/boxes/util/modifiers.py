@@ -7,6 +7,7 @@
 These modifier functions allow to change certain aspects of your annotations and detections.
 """
 import collections
+from collections.abc import Sequence
 from ..annotations import Annotation
 
 
@@ -107,7 +108,7 @@ class ScaleModifier:
         scale (Number or list, optional): Value to rescale your bounding box, defined as a single number or a (width, height) tuple; Default **1.0**
     """
     def __init__(self, scale=1.0):
-        if isinstance(scale, collections.Sequence):
+        if isinstance(scale, Sequence):
             self.scale = tuple(scale[:2])
         else:
             self.scale = (scale, scale)
@@ -147,7 +148,7 @@ class CropModifier:
         :math:`\\frac {width_{box\\ in\\ cropped\\ area}} {width_{box}} \\geq width\\_thresh \\ \\& \\  \\frac {height_{box\\ in\\ cropped\\ area}} {height_{box}} \\geq height\\_thresh`
     """
     def __init__(self, area=float('Inf'), intersection_threshold=0, move_origin=True, discard_lost=True, update_truncated=False):
-        if isinstance(area, collections.Sequence):
+        if isinstance(area, Sequence):
             if len(area) >= 4:
                 self.area = tuple(area[:4])
             elif len(area) == 3:
@@ -160,7 +161,7 @@ class CropModifier:
             self.area = (0, 0, area, area)
         self.area = (self.area[0], self.area[1], self.area[0] + self.area[2], self.area[1] + self.area[3])
 
-        if isinstance(intersection_threshold, collections.Sequence):
+        if isinstance(intersection_threshold, Sequence):
             self.inter_thresh = tuple(intersection_threshold[:2])
             self.inter_area = False
         else:

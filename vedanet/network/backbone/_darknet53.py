@@ -7,7 +7,7 @@
 # modified by mileistone
 
 import os
-from collections import OrderedDict, Iterable
+from collections import OrderedDict
 import logging
 import torch
 import torch.nn as nn
@@ -104,4 +104,3 @@ class Darknet53(nn.Module):
         features = [head_body_1, head_body_2, head_body_3]
 
         return features 
-

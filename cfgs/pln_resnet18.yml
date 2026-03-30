@@ -1,0 +1,92 @@
+task: "pln"
+output_root: "outputs"
+output_version: "baseline"
+backup_name: "weights"
+log_name: "logs"
+
+labels: ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+
+image_root: ""
+grid_size: 14
+backbone_pretrained: True
+coord_weight: 2.0
+link_weight: 0.5
+class_weight: 0.5
+eval_iou_thresholds: [0.5, 0.75]
+eval_metric_name: "mAP@0.5"
+eval_write_results: False
+
+train:
+    train_list: "/root/hmp/voc_pln_cache/train.txt"
+    eval_test_list: "/root/hmp/voc_pln_cache/test_448.txt"
+    stdout: True
+    gpus: "0"
+    nworkers: 8
+    pin_mem: True
+    eval_nworkers: 4
+    eval_pin_mem: True
+    async_eval: True
+    async_eval_gpus: "0"
+
+    momentum: 0.9
+    decay: 0.0005
+    clear: False
+    flip: 0.5
+
+    warmup_lr: 0.001
+    lr_steps: [4000, 12000, 20000]
+    lr_rates: [0.005, 0.001, 0.0001]
+    max_batches: 30000
+    resize_interval: 10
+
+    backup_interval: 200
+    backup_steps: [1000]
+    backup_rates: [1000]
+    eval_interval: 5000
+    eval_batch_size: 16
+
+    input_shape: [448, 448]
+    batch_size: 16
+    mini_batch_size: 8
+    weights: ~
+    p_thresh: 0.1
+    score_thresh: 0.1
+    nms_score_thresh: 0.1
+    nms_thresh: 0.5
+    min_size: 0.0
+    aspect_ratio_threshold: 100.0
+    overlap_threshold: 1.5
+    center_dist_threshold: 0.0
+    area_ratio_threshold: 0.5
+    pre_nms_topk: 512
+    max_detections: 0
+    eval_results: "results/PLNResnet18"
+
+test:
+    test_list: "/root/hmp/voc_pln_cache/test_448.txt"
+    stdout: True
+    gpus: "0"
+    nworkers: 4
+    pin_mem: True
+
+    input_shape: [448, 448]
+    batch_size: 8
+    weights: "outputs/PLNResnet18/baseline/weights/backup.pt"
+    p_thresh: 0.1
+    score_thresh: 0.1
+    nms_score_thresh: 0.1
+    nms_thresh: 0.5
+    min_size: 0.0
+    aspect_ratio_threshold: 100.0
+    overlap_threshold: 1.5
+    center_dist_threshold: 0.0
+    area_ratio_threshold: 0.5
+    pre_nms_topk: 512
+    max_detections: 0
+    results: "results/PLNResnet18"
+
+speed:
+    gpus: "0"
+    batch_size: 1
+    max_iters: 200
+    input_shape: [448, 448]

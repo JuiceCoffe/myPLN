@@ -5,7 +5,6 @@ import time
 from statistics import mean
 import numpy as np
 import torch
-from torchvision import transforms as tf
 from pprint import pformat
 
 import sys
@@ -30,4 +29,7 @@ if __name__ == '__main__':
     hyper_params = vn.hyperparams.HyperParams(config, train_flag=train_flag)
 
     # init and run eng
-    vn.engine.VOCTest(hyper_params)
+    if hyper_params.task == 'pln':
+        vn.engine.PLNTest(hyper_params)
+    else:
+        vn.engine.VOCTest(hyper_params)

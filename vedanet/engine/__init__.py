@@ -7,5 +7,11 @@ It has an engine, capable of orchestrating your training and test cycles, and al
 
 #from .engine import *
 from ._voc_train import *
-from ._voc_test import *
-from ._speed import *
+try:
+    from ._voc_test import *
+    from ._speed import *
+except Exception:
+    pass
+from ._pln_train import *
+from ._pln_test import *
+from ._pln_speed import *

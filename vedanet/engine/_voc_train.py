@@ -1,6 +1,5 @@
 import logging as log
 import torch
-from torchvision import transforms as tf
 from statistics import mean
 import os
 
@@ -23,7 +22,7 @@ class VOCDataset(data.BramboxDataset):
         rf  = data.transform.RandomFlip(flip)
         rc  = data.transform.RandomCropLetterbox(self, jitter)
         hsv = data.transform.HSVShift(hue, sat, val)
-        it  = tf.ToTensor()
+        it  = data.transform.ToTensor()
 
         img_tf = data.transform.Compose([rc, rf, hsv, it])
         anno_tf = data.transform.Compose([rc, rf])
