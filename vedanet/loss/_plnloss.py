@@ -9,6 +9,7 @@ class PLNLoss(nn.Module):
         branch_idx,
         num_classes=20,
         grid_size=14,
+        point_weight=1.0,
         coord_weight=2.0,
         link_weight=0.5,
         class_weight=0.5,
@@ -18,6 +19,7 @@ class PLNLoss(nn.Module):
         self.branch_idx = branch_idx
         self.num_classes = num_classes
         self.grid_size = grid_size
+        self.point_weight = point_weight
         self.coord_weight = coord_weight
         self.link_weight = link_weight
         self.class_weight = class_weight
@@ -46,7 +48,7 @@ class PLNLoss(nn.Module):
         noobj_loss = ((conf_pred - conf_target) ** 2 * neg_mask_f).sum()
 
         total_loss = (
-            point_loss
+            (self.point_weight * point_loss)
             + (self.coord_weight * coord_loss)
             + (self.link_weight * link_loss)
             + (self.class_weight * class_loss)

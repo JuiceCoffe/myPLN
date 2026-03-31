@@ -8,9 +8,10 @@ log_name: "logs"
 
 labels: ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-image_root: ""
+image_root: "/data/hmp/VOC/VOCdevkit"
 grid_size: 14
 backbone_pretrained: True
+point_weight: 1.0
 coord_weight: 2.0
 link_weight: 0.5
 class_weight: 0.5
@@ -19,16 +20,16 @@ eval_metric_name: "mAP@0.5"
 eval_write_results: False
 
 train:
-    train_list: "/data/hmp/TASK/EXAM/myPLN/data/voc_pln_cache/train.txt"
-    eval_test_list: "/data/hmp/TASK/EXAM/myPLN/data/voc_pln_cache/test_448.txt"
+    train_list: "./data/voc_pln_cache/train.txt"
+    eval_test_list: "./data/voc_pln_cache/test_448.txt"
     stdout: True
-    gpus: "2,3"
+    gpus: "0,1"
     nworkers: 8
     pin_mem: True
     eval_nworkers: 4
     eval_pin_mem: True
     async_eval: True
-    async_eval_gpus: "1"
+    async_eval_gpus: "0,1"
 
     momentum: 0.9
     decay: 0.00004
@@ -81,9 +82,9 @@ train:
     eval_results: "results/PLNResnet18"
 
 test:
-    test_list: "/data/hmp/TASK/EXAM/myPLN/data/voc_pln_cache/test_448.txt"
+    test_list: "./data/voc_pln_cache/test_448.txt"
     stdout: True
-    gpus: "0"
+    gpus: "0,1"
     nworkers: 4
     pin_mem: True
 

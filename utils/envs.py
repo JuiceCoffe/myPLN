@@ -1,6 +1,4 @@
-import sys
 import os
-import copy
 from datetime import datetime
 import logging
 import torch
@@ -47,8 +45,13 @@ def combineConfig(cur_cfg, train_flag):
 def initEnv(train_flag, model_name):
     cfgs_root = 'cfgs'
     cur_cfg = getConfig(cfgs_root, model_name)
+    project_root = os.path.abspath(os.getcwd())
+    cur_cfg['project_root'] = project_root
 
     root_dir = cur_cfg['output_root']
+    if not os.path.isabs(root_dir):
+        root_dir = os.path.join(project_root, root_dir)
+    cur_cfg['output_root'] = root_dir
     cur_cfg['model_name'] = model_name
     version = cur_cfg['output_version']
     work_dir = os.path.join(root_dir, model_name, version)

@@ -1,20 +1,40 @@
 import logging as log
+import os
 import torch
 
 __all__ = ['HyperParams']
+
+
+def _resolve_path(path, base_dir):
+    if not path:
+        return path
+    expanded = os.path.expanduser(os.path.expandvars(path))
+    if os.path.isabs(expanded):
+        return os.path.normpath(expanded)
+    return os.path.normpath(os.path.join(base_dir, expanded))
+
+
+def _resolve_path_map(path_map, base_dir):
+    return {
+        os.path.normpath(os.path.expanduser(os.path.expandvars(old_prefix))): _resolve_path(new_prefix, base_dir)
+        for old_prefix, new_prefix in path_map.items()
+    }
 
 class HyperParams(object):
     def __init__(self, config, train_flag=1):
         
         self.cuda = True
+        self.project_root = config.get('project_root', os.getcwd())
         self.labels = config['labels']
         self.classes = len(self.labels)
         self.model_name = config['model_name']
         self.task = config.get('task', 'voc')
-        self.data_root = config.get('data_root_dir', '')
-        self.image_root = config.get('image_root', '')
+        self.data_root = _resolve_path(config.get('data_root_dir', ''), self.project_root)
+        self.image_root = _resolve_path(config.get('image_root', ''), self.project_root)
+        self.path_remap = _resolve_path_map(config.get('path_remap', {}), self.project_root)
         self.grid_size = config.get('grid_size', 14)
         self.backbone_pretrained = config.get('backbone_pretrained', False)
+        self.point_weight = config.get('point_weight', 1.0)
         self.coord_weight = config.get('coord_weight', 2.0)
         self.link_weight = config.get('link_weight', 0.5)
         self.class_weight = config.get('class_weight', 0.5)
@@ -71,11 +91,11 @@ class HyperParams(object):
             self.resize = cur_cfg['resize_interval'] 
             self.rs_steps = []
             self.rs_rates = []
-            self.weights = cur_cfg['weights']
+            self.weights = _resolve_path(cur_cfg['weights'], self.project_root)
             self.clear = cur_cfg['clear']
             if self.task == 'pln':
-                self.train_list = cur_cfg['train_list']
-                self.test_list = cur_cfg['eval_test_list']
+                self.train_list = _resolve_path(cur_cfg['train_list'], self.project_root)
+                self.test_list = _resolve_path(cur_cfg['eval_test_list'], self.project_root)
                 self.eval_interval = cur_cfg.get('eval_interval', 0)
                 self.eval_batch_size = cur_cfg.get('eval_batch_size', self.batch)
                 self.eval_nworkers = cur_cfg.get('eval_nworkers', self.nworkers)
@@ -93,7 +113,7 @@ class HyperParams(object):
                 self.area_ratio_threshold = cur_cfg.get('area_ratio_threshold', 0.5)
                 self.pre_nms_topk = cur_cfg.get('pre_nms_topk', 512)
                 self.max_detections = cur_cfg.get('max_detections', 0)
-                self.results_dir = cur_cfg.get('eval_results', 'results/PLNResnet18')
+                self.results_dir = _resolve_path(cur_cfg.get('eval_results', 'results/PLNResnet18'), self.project_root)
             else:
                 dataset = cur_cfg['dataset']
                 self.trainfile = f'{self.data_root}/{dataset}.pkl'
@@ -104,9 +124,9 @@ class HyperParams(object):
             self.pin_mem = cur_cfg['pin_mem'] 
             self.network_size = cur_cfg['input_shape']
             self.batch = cur_cfg['batch_size']
-            self.weights = cur_cfg['weights']
+            self.weights = _resolve_path(cur_cfg['weights'], self.project_root)
             if self.task == 'pln':
-                self.test_list = cur_cfg['test_list']
+                self.test_list = _resolve_path(cur_cfg['test_list'], self.project_root)
                 self.p_threshold = cur_cfg.get('p_thresh', 0.1)
                 self.score_threshold = cur_cfg.get('score_thresh', 0.1)
                 self.nms_thresh = cur_cfg.get('nms_thresh', 0.5)
@@ -118,7 +138,7 @@ class HyperParams(object):
                 self.area_ratio_threshold = cur_cfg.get('area_ratio_threshold', 0.5)
                 self.pre_nms_topk = cur_cfg.get('pre_nms_topk', 512)
                 self.max_detections = cur_cfg.get('max_detections', 0)
-                self.results_dir = cur_cfg['results']
+                self.results_dir = _resolve_path(cur_cfg['results'], self.project_root)
             else:
                 dataset = cur_cfg['dataset']
                 self.testfile = f'{self.data_root}/{dataset}.pkl'

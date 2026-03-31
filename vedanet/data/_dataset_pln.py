@@ -43,19 +43,60 @@ def _resolve_path(root, path):
     return os.path.join(root, path) if root else path
 
 
+def _normalize_path(path):
+    return os.path.normpath(os.path.expanduser(os.path.expandvars(path)))
+
+
+def _apply_path_remap(path, path_remap):
+    normalized_path = _normalize_path(path)
+    for old_prefix, new_prefix in sorted(path_remap.items(), key=lambda item: len(item[0]), reverse=True):
+        normalized_old = _normalize_path(old_prefix)
+        if normalized_path == normalized_old:
+            return _normalize_path(new_prefix)
+        prefix = normalized_old + os.sep
+        if normalized_path.startswith(prefix):
+            suffix = normalized_path[len(prefix):]
+            return _normalize_path(os.path.join(new_prefix, suffix))
+    return normalized_path
+
+
+def _relocate_under_root(root, path):
+    normalized_root = _normalize_path(root)
+    normalized_path = _normalize_path(path)
+    if not normalized_root or not os.path.isabs(normalized_path):
+        return normalized_path
+
+    path_parts = normalized_path.split(os.sep)
+    root_anchor = os.path.basename(normalized_root.rstrip(os.sep))
+    for anchor in (root_anchor, "VOCdevkit"):
+        if anchor and anchor in path_parts:
+            anchor_index = path_parts.index(anchor)
+            return _normalize_path(os.path.join(normalized_root, *path_parts[anchor_index + 1:]))
+
+    return normalized_path
+
+
 class PLNAnnotationParser:
-    def __init__(self, root_dir=""):
-        self.root_dir = root_dir
+    def __init__(self, root_dir="", path_remap=None):
+        self.root_dir = _normalize_path(root_dir) if root_dir else ""
+        self.path_remap = path_remap or {}
 
     def parse(self, list_file):
         samples = []
+        list_file = _normalize_path(list_file)
+        list_dir = os.path.dirname(list_file)
         with open(list_file, "r", encoding="utf-8") as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
                     continue
                 parts = line.split()
-                image_path = _resolve_path(self.root_dir, parts[0])
+                if self.root_dir:
+                    image_path = _resolve_path(self.root_dir, parts[0])
+                else:
+                    image_path = _resolve_path(list_dir, parts[0])
+                image_path = _apply_path_remap(image_path, self.path_remap)
+                image_path = _relocate_under_root(self.root_dir, image_path)
                 boxes = []
                 labels = []
                 for idx in range((len(parts) - 1) // 5):
@@ -204,6 +245,7 @@ class PLNTrainDataset(Dataset):
         self,
         list_file,
         image_root="",
+        path_remap=None,
         input_dimension=(448, 448),
         grid_size=14,
         num_classes=20,
@@ -220,7 +262,7 @@ class PLNTrainDataset(Dataset):
         noise_std=0.0,
     ):
         super().__init__(input_dimension)
-        self.samples = PLNAnnotationParser(image_root).parse(list_file)
+        self.samples = PLNAnnotationParser(image_root, path_remap=path_remap).parse(list_file)
         self.flip = flip
         self.jitter = jitter
         self.crop_min_area = crop_min_area
@@ -356,9 +398,9 @@ class PLNTrainDataset(Dataset):
 
 
 class PLNTestDataset(Dataset):
-    def __init__(self, list_file, image_root="", input_dimension=(448, 448)):
+    def __init__(self, list_file, image_root="", path_remap=None, input_dimension=(448, 448)):
         super().__init__(input_dimension)
-        self.samples = PLNAnnotationParser(image_root).parse(list_file)
+        self.samples = PLNAnnotationParser(image_root, path_remap=path_remap).parse(list_file)
 
     def __len__(self):
         return len(self.samples)

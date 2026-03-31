@@ -65,6 +65,7 @@ class PLNTrainingEngine(engine.Engine):
             train_flag=1,
             clear=hyper_params.clear,
             backbone_pretrained=hyper_params.backbone_pretrained,
+            point_weight=hyper_params.point_weight,
             coord_weight=hyper_params.coord_weight,
             link_weight=hyper_params.link_weight,
             class_weight=hyper_params.class_weight,
@@ -96,6 +97,7 @@ class PLNTrainingEngine(engine.Engine):
         dataset = data.PLNTrainDataset(
             list_file=hyper_params.train_list,
             image_root=hyper_params.image_root,
+            path_remap=hyper_params.path_remap,
             input_dimension=hyper_params.network_size,
             grid_size=hyper_params.grid_size,
             num_classes=hyper_params.classes,
@@ -138,6 +140,7 @@ class PLNTrainingEngine(engine.Engine):
                 data.PLNTestDataset(
                     list_file=hp.test_list,
                     image_root=hp.image_root,
+                    path_remap=hp.path_remap,
                     input_dimension=hp.network_size,
                 ),
                 batch_size=hp.eval_batch_size,

@@ -15,6 +15,7 @@ def PLNTest(hyper_params):
         hyper_params.weights,
         train_flag=2,
         backbone_pretrained=False,
+        point_weight=hyper_params.point_weight,
         coord_weight=hyper_params.coord_weight,
         link_weight=hyper_params.link_weight,
         class_weight=hyper_params.class_weight,
@@ -27,6 +28,7 @@ def PLNTest(hyper_params):
         data.PLNTestDataset(
             list_file=hyper_params.test_list,
             image_root=hyper_params.image_root,
+            path_remap=hyper_params.path_remap,
             input_dimension=hyper_params.network_size,
         ),
         batch_size=hyper_params.batch,

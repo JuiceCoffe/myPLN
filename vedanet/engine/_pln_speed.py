@@ -13,6 +13,7 @@ def pln_speed(hyper_params):
         hyper_params.classes,
         train_flag=0,
         backbone_pretrained=False,
+        point_weight=hyper_params.point_weight,
         coord_weight=hyper_params.coord_weight,
         link_weight=hyper_params.link_weight,
         class_weight=hyper_params.class_weight,
