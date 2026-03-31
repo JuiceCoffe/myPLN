@@ -1,6 +1,6 @@
 task: "pln"
 output_root: "outputs"
-output_version: "baseline_1"
+output_version: "modefied"
 # output_version: "test"
 
 backup_name: "weights"
@@ -22,28 +22,39 @@ train:
     train_list: "/data/hmp/TASK/EXAM/myPLN/data/voc_pln_cache/train.txt"
     eval_test_list: "/data/hmp/TASK/EXAM/myPLN/data/voc_pln_cache/test_448.txt"
     stdout: True
-    gpus: "2,3"
+    gpus: "1,2,3"
     nworkers: 8
     pin_mem: True
-    eval_nworkers: 4
+    eval_nworkers: 16
     eval_pin_mem: True
     async_eval: True
-    async_eval_gpus: "1"
+    async_eval_gpus: "1,2,3"
 
     momentum: 0.9
     decay: 0.00004
     clear: False
+    # flip: 0.5
+    # jitter: 0.2
+    # crop_min_area: 0.2
+    # brightness: 0.15
+    # contrast: 0.15
+    # hue: 0.05
+    # saturation: 1.5
+    # value: 1.5
+    # grayscale: 0.05
+    # blur: 0.1
+    # noise_std: 0.0
     flip: 0.5
     jitter: 0.2
     crop_min_area: 0.2
-    brightness: 0.15
-    contrast: 0.15
-    hue: 0.05
-    saturation: 1.5
-    value: 1.5
-    grayscale: 0.05
-    blur: 0.1
-    noise_std: 0.02
+    brightness: 0.0
+    contrast: 0.0
+    hue: 0.0
+    saturation: 1.0
+    value: 1.0
+    grayscale: 0.0
+    blur: 0.0
+    noise_std: 0.0
 
     lr_policy: "cosine_warmup"
     warmup_lr: 0.001
@@ -57,15 +68,15 @@ train:
     max_batches: 30000
     resize_interval: 10
 
-    backup_interval: 2000
-    backup_steps: [2000]
-    backup_rates: [2000]
-    eval_interval: 2000
-    eval_batch_size: 16
+    backup_interval: 1000
+    backup_steps: [1000]
+    backup_rates: [1000]
+    eval_interval: 1000
+    eval_batch_size: 24
 
     input_shape: [448, 448]
-    batch_size: 64
-    mini_batch_size: 64
+    batch_size: 96
+    mini_batch_size: 96
     weights: ~
     p_thresh: 0.1
     score_thresh: 0.1

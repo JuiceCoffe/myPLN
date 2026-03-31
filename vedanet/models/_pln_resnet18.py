@@ -26,7 +26,7 @@ class PLNResnet18(Lightnet):
         self.nloss = 4
         self.train_flag = train_flag
 
-        self.backbone = backbone.ResNet18Backbone(pretrained=False)
+        self.backbone = backbone.ResNet18Backbone(pretrained=True)
         self.head = head.PLNHead(num_classes=num_classes, grid_size=grid_size)
         self.loss = [
             loss.PLNLoss(
@@ -42,10 +42,6 @@ class PLNResnet18(Lightnet):
 
         if weights_file is not None:
             self.load_weights(weights_file, clear)
-        else:
-            self.init_weights()
-            if backbone_pretrained:
-                self.backbone.load_pretrained()
 
     def _forward(self, x):
         return self.head(self.backbone(x))

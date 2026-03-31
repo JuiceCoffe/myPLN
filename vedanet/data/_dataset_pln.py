@@ -160,11 +160,9 @@ class PLNLabelGenerator:
             center_y = int(((ymin + ymax) * 0.5) * self.s)
             center_x = int(((xmin + xmax) * 0.5) * self.s)
             for idx in range(self.num_pairs):
-                corner_list[idx][corner_y, corner_x, class_label] = self.large_value
-                center_list[idx][center_y, center_x, class_label] = self.large_value
+                corner_list[idx][corner_y, corner_x, class_label] = 1.0
+                center_list[idx][center_y, center_x, class_label] = 1.0
 
-        corner_list = [F.softmax(item, dim=-1) for item in corner_list]
-        center_list = [F.softmax(item, dim=-1) for item in center_list]
         return corner_list, center_list
 
     def _generate_link_tensors(self, branch, boxes):

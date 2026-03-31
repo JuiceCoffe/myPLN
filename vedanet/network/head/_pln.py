@@ -57,7 +57,7 @@ class ExpandConv(nn.Module):
 
 
 class PLNHead(nn.Module):
-    def __init__(self, num_classes=20, grid_size=14, in_channels=512, hidden_channels=1536):
+    def __init__(self, num_classes=20, grid_size=14, in_channels=3328, hidden_channels=1536):
         super().__init__()
         self.grid_size = grid_size
         self.num_classes = num_classes
@@ -94,7 +94,11 @@ class PLNHead(nn.Module):
             offset = torch.sigmoid(point[:, 1:3, ...])
             link_x = F.softmax(point[:, 3:3 + self.grid_size, ...], dim=1)
             link_y = F.softmax(point[:, 3 + self.grid_size:3 + (2 * self.grid_size), ...], dim=1)
-            cls = F.softmax(point[:, 3 + (2 * self.grid_size):, ...], dim=1)
+
+            # cls = F.softmax(point[:, 3 + (2 * self.grid_size):, ...], dim=1)
+            # 【核心修改点】: 现代检测器分类均使用 Sigmoid，便于计算 Focal Loss 且提升多类表达能力
+            cls = torch.sigmoid(point[:, 3 + (2 * self.grid_size):, ...])
+            
             chunks.append(torch.cat((conf, offset, link_x, link_y, cls), dim=1))
 
         return torch.cat(chunks, dim=1)
