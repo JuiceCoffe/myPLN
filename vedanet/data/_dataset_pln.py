@@ -12,11 +12,18 @@ from ._dataloading import Dataset
 __all__ = ["PLNTrainDataset", "PLNTestDataset", "pln_test_collate"]
 
 
-VOC_MEAN = np.array((123.0, 117.0, 104.0), dtype=np.float32)
+IMAGENET_MEAN = np.array((0.485, 0.456, 0.406), dtype=np.float32)
+IMAGENET_STD = np.array((0.229, 0.224, 0.225), dtype=np.float32)
 
 
 def _to_tensor(image):
     return torch.from_numpy(np.ascontiguousarray(image.transpose(2, 0, 1))).float()
+
+
+def _normalize_image(image):
+    image = image.astype(np.float32) / 255.0
+    image = (image - IMAGENET_MEAN) / IMAGENET_STD
+    return image
 
 
 def _random_intensity_scale(max_scale):
@@ -339,8 +346,8 @@ class PLNTrainDataset(Dataset):
         norm_boxes = boxes / torch.tensor([width, height, width, height], dtype=torch.float32)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self._apply_photometric_augmentations(image)
-        image -= VOC_MEAN
         image = cv2.resize(image, tuple(self.input_dim))
+        image = _normalize_image(image)
         image = _to_tensor(image)
 
         targets = [self.generator.generate(branch, norm_boxes, labels) for branch in range(4)]
@@ -364,8 +371,8 @@ class PLNTestDataset(Dataset):
             raise FileNotFoundError(f"Failed to read image [{image_path}]")
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-        image -= VOC_MEAN
         image = cv2.resize(image, tuple(self.input_dim))
+        image = _normalize_image(image)
         image = _to_tensor(image)
 
         target = torch.zeros((boxes.shape[0], 5), dtype=torch.float32)
