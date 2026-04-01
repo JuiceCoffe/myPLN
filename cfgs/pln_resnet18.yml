@@ -8,7 +8,7 @@ log_name: "logs"
 
 labels: ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-image_root: "/data/hmp/VOC/VOCdevkit"
+image_root: "/home/haominpeng/data/VOC/VOCdevkit"
 grid_size: 14
 backbone_pretrained: True
 point_weight: 1.0
@@ -59,7 +59,7 @@ train:
 
     lr_policy: "cosine_warmup"
     warmup_lr: 0.001
-    max_lr: 0.005
+    max_lr: 0.05
     min_lr: 0.0004
     warmup_batches: 500
     cosine_total_batches: 30000

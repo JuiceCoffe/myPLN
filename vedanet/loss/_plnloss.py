@@ -13,7 +13,7 @@ class PLNLoss(nn.Module):
         coord_weight=2.0,
         link_weight=0.5,
         class_weight=0.5,
-        noobj_weight=0.04,
+        noobj_weight=0.05,
     ):
         super().__init__()
         self.branch_idx = branch_idx
