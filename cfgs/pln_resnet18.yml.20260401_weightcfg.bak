@@ -1,6 +1,6 @@
 task: "pln"
 output_root: "outputs"
-output_version: "mean"
+output_version: "bce"
 # output_version: "test"
 
 backup_name: "weights"
@@ -12,9 +12,10 @@ image_root: "/data/hmp/VOC/VOCdevkit"
 grid_size: 14
 backbone_pretrained: True
 point_weight: 1.0
-coord_weight: 4
-link_weight: 14
-class_weight: 10
+coord_weight: 5.0
+link_weight: 0.5
+class_weight: 1.0
+noobj_weight: 0.5
 eval_iou_thresholds: [0.5, 0.75]
 eval_metric_name: "mAP@0.5"
 eval_write_results: False
@@ -23,13 +24,13 @@ train:
     train_list: "./data/voc_pln_cache/train.txt"
     eval_test_list: "./data/voc_pln_cache/test_448.txt"
     stdout: True
-    gpus: "0,1"
+    gpus: "2,3"
     nworkers: 8
     pin_mem: True
     eval_nworkers: 4
     eval_pin_mem: True
     async_eval: True
-    async_eval_gpus: "0,1"
+    async_eval_gpus: "1"
 
     momentum: 0.9
     decay: 0.00004
@@ -59,7 +60,7 @@ train:
 
     lr_policy: "cosine_warmup"
     warmup_lr: 0.001
-    max_lr: 0.005
+    max_lr: 0.1
     min_lr: 0.0004
     warmup_batches: 500
     cosine_total_batches: 30000
@@ -95,7 +96,7 @@ train:
 test:
     test_list: "./data/voc_pln_cache/test_448.txt"
     stdout: True
-    gpus: "0,1"
+    gpus: "1"
     nworkers: 4
     pin_mem: True
 
