@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .. import layer
+
 __all__ = ["PLNHead"]
 
 
@@ -76,10 +78,25 @@ class PLNHead(nn.Module):
                 nn.Conv2d(hidden_channels, hidden_channels, kernel_size=3, padding=1),
                 nn.BatchNorm2d(hidden_channels),
                 nn.ReLU(inplace=False),
-                nn.Conv2d(hidden_channels, self.out_channels, kernel_size=3, padding=1),
-                nn.BatchNorm2d(self.out_channels),
+                
+                # 1. 降维到一个用于注意力的语义维度（比如 256 或 512，避免 1536 太大跑不动）
+                nn.Conv2d(hidden_channels, 256, kernel_size=3, padding=1),
+                nn.BatchNorm2d(256),
                 nn.ReLU(inplace=False),
-                ExpandConv(self.out_channels),
+                
+                # 2. 空洞卷积在语义特征上操作
+                ExpandConv(256), # 注意把 ExpandConv 里的通道也改成 256
+                
+                # 3. 自注意力层在语义特征上操作
+                layer.DETRImageSelfAttention(
+                    embed_dim=256,
+                    num_heads=8,
+                    dim_feedforward=1024,
+                    dropout=0.1,
+                ),
+                
+                # 4. 关键：加一个最后的 1x1 卷积，把特征转为预测所需的通道数 (204)
+                nn.Conv2d(256, self.out_channels, kernel_size=1, stride=1, padding=0, bias=True)
             )
             for _ in range(4)
         ])
