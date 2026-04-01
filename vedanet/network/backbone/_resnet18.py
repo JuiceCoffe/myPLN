@@ -106,9 +106,21 @@ class ResNet18Backbone(nn.Module):
 
 
     def forward(self, x):
-        x = self.stem(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        return x
+        # 创建一个字典用于保存多尺度特征
+        features = {}
+        
+        x = self.stem(x)     # 经过 stem，下采样率变为 4
+        
+        x = self.layer1(x)   # 经过 layer1，下采样率依然是 4
+        features[4] = x      # 保存下采样率为 4 的特征，shape: (B, 64, H/4, W/4)
+        
+        x = self.layer2(x)   # 经过 layer2，下采样率变为 8
+        features[8] = x      # 保存下采样率为 8 的特征，shape: (B, 128, H/8, W/8)
+        
+        x = self.layer3(x)   # 经过 layer3，下采样率变为 16
+        features[16] = x     # 保存下采样率为 16 的特征，shape: (B, 256, H/16, W/16)
+        
+        x = self.layer4(x)   # 经过 layer4，下采样率变为 32
+        features[32] = x     # 保存下采样率为 32 的特征，shape: (B, 512, H/32, W/32)
+        
+        return features
