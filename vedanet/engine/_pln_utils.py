@@ -75,7 +75,9 @@ def get_branch_tensors(grid_size, branch, device):
     return rows.to(device), cols.to(device), allow.to(device)
 
 
-def decode_branch(output, branch, p_threshold=0.1, score_threshold=0.1, grid_size=14, num_classes=20, feature_size=51):
+def decode_branch(output, branch, p_threshold=0.1, score_threshold=0.1, grid_size=14, num_classes=20, feature_size=None):
+    feature_size = 1 + 2 + (2 * grid_size) + num_classes if feature_size is None else feature_size
+    class_offset = 3 + (2 * grid_size)
     result = output.permute(1, 2, 0).reshape(-1, output.shape[0])
     device = result.device
     rows, cols, allow_matrix = get_branch_tensors(grid_size, branch, device)
@@ -106,8 +108,8 @@ def decode_branch(output, branch, p_threshold=0.1, score_threshold=0.1, grid_siz
         corner_x = corner_cols.float() + result.index_select(0, valid_corners)[:, corner_offset + 1]
         corner_y = corner_rows.float() + result.index_select(0, valid_corners)[:, corner_offset + 2]
 
-        center_cls = result.index_select(0, valid_centers)[:, center_offset + 31:center_offset + 31 + num_classes]
-        corner_cls = result.index_select(0, valid_corners)[:, corner_offset + 31:corner_offset + 31 + num_classes]
+        center_cls = result.index_select(0, valid_centers)[:, center_offset + class_offset:center_offset + class_offset + num_classes]
+        corner_cls = result.index_select(0, valid_corners)[:, corner_offset + class_offset:corner_offset + class_offset + num_classes]
 
         center_link_x = result.index_select(0, valid_centers)[:, center_offset + 3:center_offset + 3 + grid_size]
         center_link_y = result.index_select(0, valid_centers)[:, center_offset + 3 + grid_size:center_offset + 3 + (2 * grid_size)]

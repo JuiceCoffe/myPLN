@@ -1,6 +1,6 @@
 task: "pln"
 output_root: "outputs"
-output_version: "inject_attn"
+output_version: "inject_attn_640_2"
 # output_version: "test"
 
 backup_name: "weights"
@@ -8,8 +8,10 @@ log_name: "logs"
 
 labels: ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-image_root: "/data/hmp/VOC/VOCdevkit"
-grid_size: 14
+image_root: "/root/hmp/VOC/VOCdevkit"
+path_remap:
+    "/data/hmp/VOC/VOCdevkit": "/root/hmp/VOC/VOCdevkit"
+grid_size: 20
 backbone_pretrained: True
 point_weight: 1.0
 coord_weight: 2.0
@@ -21,7 +23,7 @@ eval_write_results: False
 
 train:
     train_list: "./data/voc_pln_cache/train.txt"
-    eval_test_list: "./data/voc_pln_cache/test_448.txt"
+    eval_test_list: "./data/voc_pln_cache/test_640.txt"
     stdout: True
     gpus: "0,1"
     nworkers: 8
@@ -75,7 +77,7 @@ train:
     eval_interval: 4000
     eval_batch_size: 16
 
-    input_shape: [448, 448]
+    input_shape: [640, 640]
     batch_size: 64
     mini_batch_size: 64
     weights: ~
@@ -93,15 +95,15 @@ train:
     eval_results: "results/PLNResnet18"
 
 test:
-    test_list: "./data/voc_pln_cache/test_448.txt"
+    test_list: "./data/voc_pln_cache/test_640.txt"
     stdout: True
     gpus: "0,1"
     nworkers: 4
     pin_mem: True
 
-    input_shape: [448, 448]
+    input_shape: [640, 640]
     batch_size: 8
-    weights: "outputs/PLNResnet18/baseline/weights/backup.pt"
+    weights: "outputs/PLNResnet18/inject_attn/weights/best.pt"
     p_thresh: 0.1
     score_thresh: 0.1
     nms_score_thresh: 0.1
@@ -119,4 +121,4 @@ speed:
     gpus: "0"
     batch_size: 1
     max_iters: 200
-    input_shape: [448, 448]
+    input_shape: [640, 640]

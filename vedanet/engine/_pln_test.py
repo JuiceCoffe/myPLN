@@ -19,6 +19,7 @@ def PLNTest(hyper_params):
         coord_weight=hyper_params.coord_weight,
         link_weight=hyper_params.link_weight,
         class_weight=hyper_params.class_weight,
+        grid_size=hyper_params.grid_size,
     )
     net.eval()
     if hyper_params.cuda:

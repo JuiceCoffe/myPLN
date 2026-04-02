@@ -20,6 +20,45 @@ def _resolve_path_map(path_map, base_dir):
         for old_prefix, new_prefix in path_map.items()
     }
 
+
+def _normalize_input_shape(input_shape):
+    if input_shape is None:
+        raise ValueError('input_shape must be provided for PLN runs')
+    if len(input_shape) != 2:
+        raise ValueError(f'input_shape must be [width, height], got {input_shape}')
+    width, height = (int(input_shape[0]), int(input_shape[1]))
+    if width <= 0 or height <= 0:
+        raise ValueError(f'input_shape must contain positive integers, got {input_shape}')
+    return [width, height]
+
+
+def _infer_grid_size(input_shape, configured_grid_size=None, output_stride=32):
+    width, height = _normalize_input_shape(input_shape)
+    if width != height:
+        raise ValueError(
+            f'PLN currently expects square inputs so a single grid_size can be used consistently, got {width}x{height}'
+        )
+    if width % output_stride != 0 or height % output_stride != 0:
+        raise ValueError(
+            f'PLN input_shape must be divisible by stride {output_stride}, got {width}x{height}'
+        )
+
+    inferred_grid_size = width // output_stride
+    if configured_grid_size is None:
+        return inferred_grid_size
+
+    configured_grid_size = int(configured_grid_size)
+    if configured_grid_size != inferred_grid_size:
+        log.warning(
+            'Configured grid_size=%d does not match input_shape=%sx%s at stride %d; overriding to %d',
+            configured_grid_size,
+            width,
+            height,
+            output_stride,
+            inferred_grid_size,
+        )
+    return inferred_grid_size
+
 class HyperParams(object):
     def __init__(self, config, train_flag=1):
         
@@ -32,7 +71,8 @@ class HyperParams(object):
         self.data_root = _resolve_path(config.get('data_root_dir', ''), self.project_root)
         self.image_root = _resolve_path(config.get('image_root', ''), self.project_root)
         self.path_remap = _resolve_path_map(config.get('path_remap', {}), self.project_root)
-        self.grid_size = config.get('grid_size', 14)
+        self.configured_grid_size = config.get('grid_size', None)
+        self.grid_size = self.configured_grid_size
         self.backbone_pretrained = config.get('backbone_pretrained', False)
         self.point_weight = config.get('point_weight', 1.0)
         self.coord_weight = config.get('coord_weight', 2.0)
@@ -55,7 +95,7 @@ class HyperParams(object):
 
             self.nworkers = cur_cfg['nworkers'] 
             self.pin_mem = cur_cfg['pin_mem'] 
-            self.network_size = cur_cfg['input_shape']
+            self.network_size = _normalize_input_shape(cur_cfg['input_shape'])
             self.batch = cur_cfg['batch_size']
             self.mini_batch = cur_cfg['mini_batch_size']
             self.max_batches = cur_cfg['max_batches']
@@ -94,6 +134,7 @@ class HyperParams(object):
             self.weights = _resolve_path(cur_cfg['weights'], self.project_root)
             self.clear = cur_cfg['clear']
             if self.task == 'pln':
+                self.grid_size = _infer_grid_size(self.network_size, self.configured_grid_size)
                 self.train_list = _resolve_path(cur_cfg['train_list'], self.project_root)
                 self.test_list = _resolve_path(cur_cfg['eval_test_list'], self.project_root)
                 self.eval_interval = cur_cfg.get('eval_interval', 0)
@@ -122,10 +163,11 @@ class HyperParams(object):
 
             self.nworkers = cur_cfg['nworkers'] 
             self.pin_mem = cur_cfg['pin_mem'] 
-            self.network_size = cur_cfg['input_shape']
+            self.network_size = _normalize_input_shape(cur_cfg['input_shape'])
             self.batch = cur_cfg['batch_size']
             self.weights = _resolve_path(cur_cfg['weights'], self.project_root)
             if self.task == 'pln':
+                self.grid_size = _infer_grid_size(self.network_size, self.configured_grid_size)
                 self.test_list = _resolve_path(cur_cfg['test_list'], self.project_root)
                 self.p_threshold = cur_cfg.get('p_thresh', 0.1)
                 self.score_threshold = cur_cfg.get('score_thresh', 0.1)
@@ -149,6 +191,8 @@ class HyperParams(object):
         else:
             cur_cfg = config
 
-            self.network_size = cur_cfg['input_shape']
+            self.network_size = _normalize_input_shape(cur_cfg['input_shape'])
             self.batch = cur_cfg['batch_size']
             self.max_iters = cur_cfg['max_iters']
+            if self.task == 'pln':
+                self.grid_size = _infer_grid_size(self.network_size, self.configured_grid_size)

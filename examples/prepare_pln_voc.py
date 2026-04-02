@@ -89,7 +89,8 @@ def main():
 
     with open(os.path.join(args.output_dir, "train.txt"), "w", encoding="utf-8") as handle:
         handle.write("\n".join(train_lines))
-    with open(os.path.join(args.output_dir, "test_448.txt"), "w", encoding="utf-8") as handle:
+    test_filename = f"test_{args.size}.txt"
+    with open(os.path.join(args.output_dir, test_filename), "w", encoding="utf-8") as handle:
         handle.write("\n".join(test_lines))
 
 

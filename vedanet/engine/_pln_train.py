@@ -69,6 +69,7 @@ class PLNTrainingEngine(engine.Engine):
             coord_weight=hyper_params.coord_weight,
             link_weight=hyper_params.link_weight,
             class_weight=hyper_params.class_weight,
+            grid_size=hyper_params.grid_size,
         )
         log.info("Net structure\n\n%s\n", net)
         if self.cuda:
