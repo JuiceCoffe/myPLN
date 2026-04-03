@@ -1,6 +1,9 @@
 import os
+import re
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 
+import numpy as np
 import torch
 
 VOC_CLASSES = (
@@ -325,7 +328,139 @@ def collect_pln_detections(
     return detections_by_image
 
 
-def evaluate_map(detections_by_image, gt_by_image, num_classes=20, iou_thresholds=(0.5,)):
+def _voc_ap(rec, prec, use_07_metric=False):
+    if use_07_metric:
+        ap = 0.0
+        for threshold in np.arange(0.0, 1.1, 0.1):
+            mask = rec >= threshold
+            ap += (np.max(prec[mask]) if np.any(mask) else 0.0) / 11.0
+        return ap
+
+    mrec = np.concatenate(([0.0], rec, [1.0]))
+    mpre = np.concatenate(([0.0], prec, [0.0]))
+    for idx in range(mpre.size - 1, 0, -1):
+        mpre[idx - 1] = np.maximum(mpre[idx - 1], mpre[idx])
+    changes = np.where(mrec[1:] != mrec[:-1])[0]
+    return np.sum((mrec[changes + 1] - mrec[changes]) * mpre[changes + 1])
+
+
+def _normalize_input_dimension(input_dimension):
+    if input_dimension is None:
+        return None
+    if isinstance(input_dimension, (int, float)):
+        size = float(input_dimension)
+        return size, size
+    if len(input_dimension) != 2:
+        return None
+    return float(input_dimension[0]), float(input_dimension[1])
+
+
+def _infer_voc_annotation_path(image_path):
+    token = f"{os.sep}JPEGImages{os.sep}"
+    normalized_path = os.path.normpath(image_path)
+    if token not in normalized_path:
+        return None
+    annotation_path = normalized_path.replace(token, f"{os.sep}Annotations{os.sep}", 1)
+    return os.path.splitext(annotation_path)[0] + ".xml"
+
+
+def _extract_voc_year(path):
+    match = re.search(r"VOC(\d{4})", path)
+    return int(match.group(1)) if match else None
+
+
+def _parse_voc_annotation(annotation_path, label_to_index):
+    try:
+        root = ET.parse(annotation_path).getroot()
+    except (ET.ParseError, FileNotFoundError):
+        return None
+
+    width = root.findtext("size/width")
+    height = root.findtext("size/height")
+    if width is None or height is None:
+        return None
+
+    objects = []
+    for obj in root.findall("object"):
+        class_name = obj.findtext("name")
+        if class_name not in label_to_index:
+            continue
+        bbox = obj.find("bndbox")
+        if bbox is None:
+            continue
+        objects.append(
+            {
+                "bbox": np.array(
+                    [
+                        float(bbox.findtext("xmin")),
+                        float(bbox.findtext("ymin")),
+                        float(bbox.findtext("xmax")),
+                        float(bbox.findtext("ymax")),
+                    ],
+                    dtype=np.float64,
+                ),
+                "difficult": bool(int(obj.findtext("difficult", default="0"))),
+                "label": label_to_index[class_name],
+            }
+        )
+
+    return {"width": float(width), "height": float(height), "objects": objects}
+
+
+def _prepare_voc_records(detections_by_image, labels):
+    label_to_index = {name: idx for idx, name in enumerate(labels)}
+    years = set()
+    records = {}
+
+    for image_path in detections_by_image:
+        annotation_path = _infer_voc_annotation_path(image_path)
+        if annotation_path is None or not os.path.exists(annotation_path):
+            return None
+        record = _parse_voc_annotation(annotation_path, label_to_index)
+        if record is None:
+            return None
+        records[image_path] = record
+        year = _extract_voc_year(annotation_path) or _extract_voc_year(image_path)
+        if year is not None:
+            years.add(year)
+
+    use_07_metric = bool(years) and max(years) < 2010
+    return records, use_07_metric
+
+
+def _scale_detections_to_original(detections_by_image, annotation_records, input_dimension):
+    netw, neth = input_dimension
+    scaled_detections = {}
+
+    for image_path, detections in detections_by_image.items():
+        if detections.numel() == 0:
+            scaled_detections[image_path] = np.zeros((0, 6), dtype=np.float64)
+            continue
+
+        record = annotation_records[image_path]
+        scaled = detections.detach().cpu().numpy().astype(np.float64, copy=True)
+        width = record["width"]
+        height = record["height"]
+        scaled[:, [0, 2]] *= width / netw
+        scaled[:, [1, 3]] *= height / neth
+        scaled[:, [0, 2]] = np.clip(scaled[:, [0, 2]], 0.0, max(width - 1.0, 0.0))
+        scaled[:, [1, 3]] = np.clip(scaled[:, [1, 3]], 0.0, max(height - 1.0, 0.0))
+        scaled_detections[image_path] = scaled
+
+    return scaled_detections
+
+
+def _summarize_ap(ap_by_threshold):
+    summary = {}
+    for iou_threshold, aps in ap_by_threshold.items():
+        summary[f"mAP@{iou_threshold}"] = sum(aps.values()) / max(len(aps), 1)
+
+    if 0.5 in ap_by_threshold:
+        summary["per_class_ap50"] = ap_by_threshold[0.5]
+    return summary
+
+
+def _evaluate_map_legacy(detections_by_image, gt_by_image, num_classes=20, iou_thresholds=(0.5,)):
     ap_by_threshold = {}
     for iou_threshold in iou_thresholds:
         aps = {}
@@ -380,25 +515,150 @@ def evaluate_map(detections_by_image, gt_by_image, num_classes=20, iou_threshold
 
         ap_by_threshold[iou_threshold] = aps
 
-    summary = {}
-    for iou_threshold, aps in ap_by_threshold.items():
-        summary[f"mAP@{iou_threshold}"] = sum(aps.values()) / max(len(aps), 1)
-
-    if 0.5 in ap_by_threshold:
-        summary["per_class_ap50"] = ap_by_threshold[0.5]
-    return summary
+    return _summarize_ap(ap_by_threshold)
 
 
-def write_voc_results(results_dir, detections_by_image, labels=VOC_CLASSES):
+def _evaluate_map_voc(detections_by_image, annotation_records, use_07_metric, num_classes=20, iou_thresholds=(0.5,), input_dimension=(448.0, 448.0)):
+    scaled_detections = _scale_detections_to_original(detections_by_image, annotation_records, input_dimension)
+    ap_by_threshold = {}
+
+    for iou_threshold in iou_thresholds:
+        aps = {}
+        for class_idx in range(num_classes):
+            class_recs = {}
+            gt_count = 0
+            for image_path, record in annotation_records.items():
+                class_objects = [obj for obj in record["objects"] if obj["label"] == class_idx]
+                if class_objects:
+                    boxes = np.array([obj["bbox"] for obj in class_objects], dtype=np.float64)
+                    difficult = np.array([obj["difficult"] for obj in class_objects], dtype=bool)
+                else:
+                    boxes = np.zeros((0, 4), dtype=np.float64)
+                    difficult = np.zeros((0,), dtype=bool)
+                class_recs[image_path] = {"bbox": boxes, "difficult": difficult, "det": [False] * len(class_objects)}
+                gt_count += int(np.sum(~difficult))
+
+            if gt_count == 0:
+                aps[class_idx] = 0.0
+                continue
+
+            image_ids = []
+            confidence = []
+            boxes = []
+            for image_path, detections in scaled_detections.items():
+                class_detections = detections[detections[:, 5] == class_idx]
+                for detection in class_detections:
+                    image_ids.append(image_path)
+                    confidence.append(float(detection[4]))
+                    boxes.append(detection[:4])
+
+            if not confidence:
+                aps[class_idx] = 0.0
+                continue
+
+            confidence = np.array(confidence, dtype=np.float64)
+            boxes = np.array(boxes, dtype=np.float64)
+            sorted_indices = np.argsort(-confidence)
+            boxes = boxes[sorted_indices, :]
+            image_ids = [image_ids[idx] for idx in sorted_indices]
+
+            tp = np.zeros(len(image_ids), dtype=np.float64)
+            fp = np.zeros(len(image_ids), dtype=np.float64)
+
+            for det_idx, image_path in enumerate(image_ids):
+                record = class_recs[image_path]
+                det_box = boxes[det_idx, :]
+                gt_boxes = record["bbox"]
+                ovmax = -np.inf
+                match_idx = -1
+
+                if gt_boxes.size > 0:
+                    ixmin = np.maximum(gt_boxes[:, 0], det_box[0])
+                    iymin = np.maximum(gt_boxes[:, 1], det_box[1])
+                    ixmax = np.minimum(gt_boxes[:, 2], det_box[2])
+                    iymax = np.minimum(gt_boxes[:, 3], det_box[3])
+                    inter_w = np.maximum(ixmax - ixmin + 1.0, 0.0)
+                    inter_h = np.maximum(iymax - iymin + 1.0, 0.0)
+                    intersections = inter_w * inter_h
+                    unions = (
+                        (det_box[2] - det_box[0] + 1.0) * (det_box[3] - det_box[1] + 1.0)
+                        + (gt_boxes[:, 2] - gt_boxes[:, 0] + 1.0) * (gt_boxes[:, 3] - gt_boxes[:, 1] + 1.0)
+                        - intersections
+                    )
+                    overlaps = intersections / np.maximum(unions, np.finfo(np.float64).eps)
+                    ovmax = np.max(overlaps)
+                    match_idx = int(np.argmax(overlaps))
+
+                if ovmax > iou_threshold:
+                    if not record["difficult"][match_idx]:
+                        if not record["det"][match_idx]:
+                            tp[det_idx] = 1.0
+                            record["det"][match_idx] = True
+                        else:
+                            fp[det_idx] = 1.0
+                else:
+                    fp[det_idx] = 1.0
+
+            fp = np.cumsum(fp)
+            tp = np.cumsum(tp)
+            recall = tp / float(gt_count)
+            precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+            aps[class_idx] = float(_voc_ap(recall, precision, use_07_metric=use_07_metric))
+
+        ap_by_threshold[iou_threshold] = aps
+
+    return _summarize_ap(ap_by_threshold)
+
+
+def evaluate_map(
+    detections_by_image,
+    gt_by_image,
+    num_classes=20,
+    iou_thresholds=(0.5,),
+    labels=VOC_CLASSES,
+    input_dimension=None,
+):
+    normalized_input_dimension = _normalize_input_dimension(input_dimension)
+    if normalized_input_dimension is not None and detections_by_image:
+        prepared = _prepare_voc_records(detections_by_image, labels)
+        if prepared is not None:
+            annotation_records, use_07_metric = prepared
+            return _evaluate_map_voc(
+                detections_by_image,
+                annotation_records,
+                use_07_metric=use_07_metric,
+                num_classes=num_classes,
+                iou_thresholds=iou_thresholds,
+                input_dimension=normalized_input_dimension,
+            )
+    return _evaluate_map_legacy(detections_by_image, gt_by_image, num_classes=num_classes, iou_thresholds=iou_thresholds)
+
+
+def write_voc_results(results_dir, detections_by_image, labels=VOC_CLASSES, input_dimension=None):
     os.makedirs(results_dir, exist_ok=True)
     per_class_lines = defaultdict(list)
 
-    for image_path, detections in detections_by_image.items():
+    normalized_input_dimension = _normalize_input_dimension(input_dimension)
+    prepared = _prepare_voc_records(detections_by_image, labels) if normalized_input_dimension is not None and detections_by_image else None
+    if prepared is not None:
+        annotation_records, _ = prepared
+        detections_to_write = _scale_detections_to_original(detections_by_image, annotation_records, normalized_input_dimension)
+    else:
+        detections_to_write = detections_by_image
+
+    for image_path, detections in detections_to_write.items():
         image_id = os.path.splitext(os.path.basename(image_path))[0]
         for det in detections:
-            class_idx = int(det[5].item())
+            if isinstance(det, np.ndarray):
+                class_idx = int(det[5])
+                score = float(det[4])
+                xmin, ymin, xmax, ymax = (float(det[idx]) for idx in range(4))
+            else:
+                class_idx = int(det[5].item())
+                score = det[4].item()
+                xmin, ymin, xmax, ymax = (det[idx].item() for idx in range(4))
             label = labels[class_idx]
-            line = f"{image_id} {det[4].item():.6f} {det[0].item():.2f} {det[1].item():.2f} {det[2].item():.2f} {det[3].item():.2f}"
+            line = f"{image_id} {score:.6f} {xmin:.2f} {ymin:.2f} {xmax:.2f} {ymax:.2f}"
             per_class_lines[label].append(line)
 
     for label in labels:

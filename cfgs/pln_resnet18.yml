@@ -1,6 +1,6 @@
 task: "pln"
 output_root: "outputs"
-output_version: "inject_attn_640_2"
+output_version: "inject_attn_640_3"
 # output_version: "test"
 
 backup_name: "weights"
@@ -25,13 +25,13 @@ train:
     train_list: "./data/voc_pln_cache/train.txt"
     eval_test_list: "./data/voc_pln_cache/test_640.txt"
     stdout: True
-    gpus: "0,1"
+    gpus: "0"
     nworkers: 8
     pin_mem: True
     eval_nworkers: 4
     eval_pin_mem: True
     async_eval: True
-    async_eval_gpus: "0,1"
+    async_eval_gpus: "0"
 
     momentum: 0.9
     decay: 0.00004
@@ -68,18 +68,18 @@ train:
     backbone_lr_mult: 0.1
     lr_steps: [4000, 12000, 20000]
     lr_rates: [0.005, 0.001, 0.0001]
-    max_batches: 30000
+    max_batches: 33000
     resize_interval: 10
 
     backup_interval: 4000
     backup_steps: [4000]
     backup_rates: [4000]
     eval_interval: 4000
-    eval_batch_size: 16
+    eval_batch_size: 8
 
     input_shape: [640, 640]
     batch_size: 64
-    mini_batch_size: 64
+    mini_batch_size: 32
     weights: ~
     p_thresh: 0.1
     score_thresh: 0.1
@@ -97,7 +97,7 @@ train:
 test:
     test_list: "./data/voc_pln_cache/test_640.txt"
     stdout: True
-    gpus: "0,1"
+    gpus: "0"
     nworkers: 4
     pin_mem: True
 

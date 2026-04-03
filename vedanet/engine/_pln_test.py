@@ -71,8 +71,20 @@ def PLNTest(hyper_params):
         for batch_idx, image_path in enumerate(image_paths):
             gt_by_image[image_path] = targets[batch_idx]
 
-    write_voc_results(hyper_params.results_dir, detections_by_image, hyper_params.labels)
-    metrics = evaluate_map(detections_by_image, gt_by_image, num_classes=hyper_params.classes, iou_thresholds=hyper_params.eval_iou_thresholds)
+    write_voc_results(
+        hyper_params.results_dir,
+        detections_by_image,
+        labels=hyper_params.labels,
+        input_dimension=hyper_params.network_size,
+    )
+    metrics = evaluate_map(
+        detections_by_image,
+        gt_by_image,
+        num_classes=hyper_params.classes,
+        iou_thresholds=hyper_params.eval_iou_thresholds,
+        labels=hyper_params.labels,
+        input_dimension=hyper_params.network_size,
+    )
     log.info("PLN mAP@0.5: %.4f", metrics.get("mAP@0.5", 0.0))
     for class_idx, ap in metrics.get("per_class_ap50", {}).items():
         log.info("%s AP@0.5: %.4f", hyper_params.labels[class_idx], ap)

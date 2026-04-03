@@ -141,6 +141,14 @@ class Engine(ABC):
         Return:
             int: Computed as self.batch_size // self.mini_batch_size
         """
+        if self.batch_size <= 0:
+            raise ValueError(f'batch_size must be > 0, got {self.batch_size}')
+        if self.mini_batch_size <= 0:
+            raise ValueError(f'mini_batch_size must be > 0, got {self.mini_batch_size}')
+        if self.batch_size < self.mini_batch_size:
+            raise ValueError(
+                f'batch_size ({self.batch_size}) must be >= mini_batch_size ({self.mini_batch_size})'
+            )
         return self.batch_size // self.mini_batch_size
 
     @property

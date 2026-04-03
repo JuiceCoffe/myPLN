@@ -59,6 +59,20 @@ def _infer_grid_size(input_shape, configured_grid_size=None, output_stride=32):
         )
     return inferred_grid_size
 
+
+def _validate_batch_sizes(batch_size, mini_batch_size, context):
+    batch_size = int(batch_size)
+    mini_batch_size = int(mini_batch_size)
+    if batch_size <= 0:
+        raise ValueError(f'{context} batch_size must be > 0, got {batch_size}')
+    if mini_batch_size <= 0:
+        raise ValueError(f'{context} mini_batch_size must be > 0, got {mini_batch_size}')
+    if batch_size < mini_batch_size:
+        raise ValueError(
+            f'{context} batch_size ({batch_size}) must be >= mini_batch_size ({mini_batch_size})'
+        )
+    return batch_size, mini_batch_size
+
 class HyperParams(object):
     def __init__(self, config, train_flag=1):
         
@@ -96,8 +110,11 @@ class HyperParams(object):
             self.nworkers = cur_cfg['nworkers'] 
             self.pin_mem = cur_cfg['pin_mem'] 
             self.network_size = _normalize_input_shape(cur_cfg['input_shape'])
-            self.batch = cur_cfg['batch_size']
-            self.mini_batch = cur_cfg['mini_batch_size']
+            self.batch, self.mini_batch = _validate_batch_sizes(
+                cur_cfg['batch_size'],
+                cur_cfg['mini_batch_size'],
+                'train',
+            )
             self.max_batches = cur_cfg['max_batches']
             self.flip = cur_cfg.get('flip', 0.5)
             self.jitter = cur_cfg.get('jitter', 0.3)

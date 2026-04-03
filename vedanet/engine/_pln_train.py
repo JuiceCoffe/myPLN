@@ -423,6 +423,8 @@ class PLNTrainingEngine(engine.Engine):
             gt_by_image,
             num_classes=self.hyper_params.classes,
             iou_thresholds=self.hyper_params.eval_iou_thresholds,
+            labels=self.hyper_params.labels,
+            input_dimension=self.hyper_params.network_size,
         )
         current_metric = metrics.get(self.hyper_params.eval_metric_name, 0.0)
         log.info("Eval at batch %d: %s=%.4f", self.batch, self.hyper_params.eval_metric_name, current_metric)
@@ -430,7 +432,12 @@ class PLNTrainingEngine(engine.Engine):
 
         if self.hyper_params.eval_write_results:
             eval_dir = os.path.join(self.hyper_params.results_dir, f"eval_batch_{self.batch}")
-            write_voc_results(eval_dir, detections_by_image, self.hyper_params.labels)
+            write_voc_results(
+                eval_dir,
+                detections_by_image,
+                labels=self.hyper_params.labels,
+                input_dimension=self.hyper_params.network_size,
+            )
 
         if current_metric > self.best_metric:
             self.best_metric = current_metric
