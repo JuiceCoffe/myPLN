@@ -119,7 +119,7 @@ def decode_branch(output, branch, p_threshold=0.1, score_threshold=0.1, grid_siz
         term1 = center_link_x[:, corner_cols] * center_link_y[:, corner_rows]
         term2 = corner_link_x[:, center_cols].transpose(0, 1) * corner_link_y[:, center_rows].transpose(0, 1)
         common = center_conf.index_select(0, valid_centers)[:, None] * corner_conf.index_select(0, valid_corners)[None, :]
-        common = common * ((term1 + term2) * 0.5 * 1000.0) * allowed.float()
+        common = common * ((term1 + term2) * 0.5) * allowed.float()
         if torch.count_nonzero(common) == 0:
             continue
 
